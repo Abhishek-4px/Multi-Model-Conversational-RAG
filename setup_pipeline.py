@@ -1,8 +1,3 @@
-"""
-Setup pipeline for RAG system.
-Processes PDF, generates embeddings, and indexes in Qdrant.
-"""
-
 import os
 import sys
 from dotenv import load_dotenv
@@ -14,10 +9,8 @@ from tqdm import tqdm
 from utils.pdf_parser import MultimodalPDFParser
 from utils.chunking import AcademicChunker
 
-# Load environment variables
 load_dotenv()
 
-# Configuration
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
 COLLECTION_NAME = os.getenv("QDRANT_COLLECTION_NAME", "trigonometry_chapter")
@@ -26,43 +19,23 @@ CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", 800))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", 150))
 PDF_PATH = os.getenv("PDF_PATH", "jemh109.pdf")
 
-
+# making text to embeds
 def generate_embeddings(text: str, model: str = EMBEDDING_MODEL) -> list:
-    """
-    Generate embeddings using Ollama.
-    
-    Args:
-        text: Text to embed
-        model: Embedding model name
-        
-    Returns:
-        Embedding vector
-    """
     try:
         response = ollama.embeddings(model=model, prompt=text)
         return response["embedding"]
     except Exception as e:
         print(f"Error generating embedding: {e}")
-        print("Make sure Ollama is running and the model is installed:")
-        print(f"  ollama pull {model}")
+        print(f"ollama pull {model}")
         return None
 
-
+#
 def setup_qdrant_collection(client: QdrantClient, collection_name: str, vector_size: int):
-    """
-    Setup Qdrant collection.
-    
-    Args:
-        client: Qdrant client
-        collection_name: Name of collection
-        vector_size: Dimension of vectors
-    """
-    # Check if collection exists
     collections = client.get_collections().collections
     collection_names = [col.name for col in collections]
     
     if collection_name in collection_names:
-        print(f"⚠ Collection '{collection_name}' already exists. Deleting...")
+        print(f"Collection '{collection_name}' already exists. Deleting ")
         client.delete_collection(collection_name)
     
     # Create collection

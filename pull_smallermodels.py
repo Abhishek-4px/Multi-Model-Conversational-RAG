@@ -1,9 +1,7 @@
 import ollama
-
-# Try pulling the absolute smallest model that works
 models_to_try = [
-    'neural-chat:latest',  # ~4.1 GB (should fit exactly)
-    'dolphin-mixtral:latest',  # ~8.9 GB (might not fit)
+    'neural-chat:latest', 
+    'dolphin-mixtral:latest', 
 ]
 
 for model in models_to_try:
@@ -20,9 +18,8 @@ for model in models_to_try:
         print(f"\n✗ {model} failed: {str(e)[:100]}")
         continue
 
-# Show available models
 print("\n" + "="*60)
 print("Available models:")
 models = ollama.list()
 for model in models['models']:
-    print(f"  ✓ {model['name']}")
+    print(f" {model['name']}")
