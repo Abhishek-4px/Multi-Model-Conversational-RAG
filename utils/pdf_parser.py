@@ -24,16 +24,16 @@ class MultimodalPDFParser:
     #Taken string text as input and returns a bool value depending whether maths formulas are found or not
     def detect_mathematical_content(self, text: str) -> bool:
         math_patterns = [
-            r'√',  # Square root
-            r'∠',  # Angle
-            r'°',  # Degree
+            r'√', 
+            r'∠',  
+            r'°', 
             r'tan\s*\d+°',
             r'sin\s*\d+°',
             r'cos\s*\d+°',
-            r'Δ',  # Triangle
+            r'Δ',  
             r'=\s*\d+',
-            r'\d+\s*m',  # Measurements
-            r'Fig\.\s*\d+\.\d+',  # Figure references
+            r'\d+\s*m', 
+            r'Fig\.\s*\d+\.\d+',  
         ]
         
         for pattern in math_patterns:
@@ -42,34 +42,16 @@ class MultimodalPDFParser:
         return False
     
     def extract_text_from_page(self, page_num: int) -> str:
-        """
-        Extract text from a specific page.
-        
-        Args:
-            page_num: Page number (0-indexed)
-            
-        Returns:
-            Extracted text
-        """
         page = self.doc[page_num]
         text = page.get_text()
         return text
     
     def extract_images_from_page(self, page_num: int) -> List[Dict[str, Any]]:
-        """
-        Extract images from a specific page (OPTIMIZED - larger images only).
-        
-        Args:
-            page_num: Page number (0-indexed)
-            
-        Returns:
-            List of image dictionaries with metadata
-        """
         page = self.doc[page_num]
         image_list = page.get_images(full=True)
         extracted_images = []
         
-        # Only extract meaningful images (skip small icons/decorations)
+        # Only extract meaningful images
         MIN_IMAGE_SIZE = 10000  # Skip images smaller than 10KB
         
         for img_index, img in enumerate(image_list):
@@ -81,18 +63,16 @@ class MultimodalPDFParser:
                 image_bytes = base_image["image"]
                 image_ext = base_image["ext"]
                 
-                # Skip tiny images (likely decorations/icons)
+                # Skip tiny images
                 if len(image_bytes) < MIN_IMAGE_SIZE:
                     continue
                 
-                # Save image
                 image_filename = f"page_{page_num + 1}_img_{img_index}.{image_ext}"
                 image_path = os.path.join(self.images_dir, image_filename)
                 
                 with open(image_path, "wb") as img_file:
                     img_file.write(image_bytes)
                 
-                # Create image metadata
                 img_data = {
                     "page": page_num,
                     "index": img_index,
@@ -104,23 +84,14 @@ class MultimodalPDFParser:
                 }
                 
                 extracted_images.append(img_data)
-                print(f"  ✓ Extracted image: {image_filename}")
+                print(f" Extracted image: {image_filename}")
                 
             except Exception as e:
-                print(f"  ⚠ Error extracting image {img_index} from page {page_num + 1}: {e}")
+                print(f" Error extracting image {img_index} from page {page_num + 1}: {e}")
         
         return extracted_images
     
     def extract_blocks_from_page(self, page_num: int) -> List[Dict[str, Any]]:
-        """
-        Extract text blocks with position information.
-        
-        Args:
-            page_num: Page number (0-indexed)
-            
-        Returns:
-            List of text blocks with metadata
-        """
         page = self.doc[page_num]
         blocks = page.get_text("dict")["blocks"]
         
@@ -152,12 +123,6 @@ class MultimodalPDFParser:
         return extracted_blocks
     
     def parse_full_document(self) -> List[Dict[str, Any]]:
-        """
-        Parse entire document extracting all content.
-        
-        Returns:
-            List of document chunks with metadata
-        """
         all_chunks = []
         total_images = 0
         total_math_blocks = 0
@@ -166,25 +131,20 @@ class MultimodalPDFParser:
         
         for page_num in range(len(self.doc)):
             print(f"\n[Page {page_num + 1}/{len(self.doc)}]")
-            
-            # Extract text
+
             page_text = self.extract_text_from_page(page_num)
-            
-            # Extract images
+
             images = self.extract_images_from_page(page_num)
             total_images += len(images)
-            
-            # Extract blocks for better context
+
             blocks = self.extract_blocks_from_page(page_num)
-            
-            # Count math blocks
+
             math_blocks = sum(1 for b in blocks if b.get("has_math", False))
             total_math_blocks += math_blocks
             
             if math_blocks > 0:
                 print(f"  ✓ Found {math_blocks} blocks with mathematical content")
-            
-            # Create page chunk
+
             chunk = {
                 "page": page_num,
                 "text": page_text,
