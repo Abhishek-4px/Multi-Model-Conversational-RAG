@@ -10,7 +10,7 @@ class PromptCache:
     
     def _generate_key(self, prompt: str, model: str) -> str:
         content = f"{prompt}_{model}"
-        return hashlib.sha256(content.encode()).hexdigest()
+        return hashlib.sha256(content.encode()).hexdigest()     # 64 digits unicode for labelling the question , same questions have same code
     
     def get(self, prompt: str, model: str) -> Optional[Dict[str, Any]]:
         key = self._generate_key(prompt, model)

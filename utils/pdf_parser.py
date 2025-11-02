@@ -20,8 +20,8 @@ class MultimodalPDFParser:
     def close(self):
         if self.doc:
             self.doc.close()
-            
-    #Taked string text as input and returns a bool value depending whether maths formulas are found or not
+
+    #Taken string text as input and returns a bool value depending whether maths formulas are found or not
     def detect_mathematical_content(self, text: str) -> bool:
         math_patterns = [
             r'√',  # Square root
