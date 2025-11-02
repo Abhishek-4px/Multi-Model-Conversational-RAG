@@ -1,36 +1,11 @@
-"""
-Intelligent chunking strategy for academic documents.
-Preserves context for mathematical formulas and maintains coherence.
-"""
-
 from typing import List, Dict, Any
 import re
-
-
 class AcademicChunker:
-    """Chunks academic documents while preserving context."""
-    
     def __init__(self, chunk_size: int = 800, chunk_overlap: int = 150):
-        """
-        Initialize chunker.
-        
-        Args:
-            chunk_size: Target size for each chunk
-            chunk_overlap: Overlap between consecutive chunks
-        """
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
     
     def is_formula_header(self, text: str) -> bool:
-        """
-        Check if text contains mathematical formula indicators.
-        
-        Args:
-            text: Text to check
-            
-        Returns:
-            True if text appears to be formula-related
-        """
         formula_patterns = [
             r'equation\s+\d+',
             r'formula\s+\d+',
@@ -38,7 +13,7 @@ class AcademicChunker:
             r'example\s+\d+',
             r'Fig\.\s*\d+\.\d+',
             r'solution:',
-            r'^\s*\d+\.\d+',  # Section numbers
+            r'^\s*\d+\.\d+',    # Section numbers
             r'tan\s*\d+°',
             r'sin\s*\d+°',
             r'cos\s*\d+°',
@@ -50,44 +25,16 @@ class AcademicChunker:
         return False
     
     def extract_figure_references(self, text: str) -> List[str]:
-        """
-        Extract figure references from text.
-        
-        Args:
-            text: Text to search
-            
-        Returns:
-            List of figure references
-        """
         pattern = r'Fig\.\s*\d+\.\d+'
         return re.findall(pattern, text)
     
     def split_into_sentences(self, text: str) -> List[str]:
-        """
-        Split text into sentences while preserving formulas.
-        
-        Args:
-            text: Text to split
-            
-        Returns:
-            List of sentences
-        """
-        # Split on periods followed by space and capital letter or newline
+
         sentences = re.split(r'(?<=[.!?])\s+(?=[A-Z]|\n)', text)
         return [s.strip() for s in sentences if s.strip()]
     
     def chunk_text(self, text: str, metadata: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """
-        Chunk text intelligently preserving context.
         
-        Args:
-            text: Text to chunk
-            metadata: Metadata to attach to chunks
-            
-        Returns:
-            List of chunks with metadata
-        """
-        # Check if text is very short
         if len(text) < self.chunk_size:
             return [{
                 "text": text.strip(),
@@ -111,7 +58,7 @@ class AcademicChunker:
             test_length = len(current_chunk) + len(sentence) + 1
             
             if test_length > self.chunk_size and current_chunk and not is_header:
-                # Save current chunk
+                # Saving current chunk
                 chunks.append({
                     "text": current_chunk.strip(),
                     "metadata": {
@@ -122,7 +69,7 @@ class AcademicChunker:
                     }
                 })
                 
-                # Start new chunk with overlap
+                # Starting new chunk with overlap
                 overlap_size = min(2, len(current_sentences))
                 overlap_text = " ".join(current_sentences[-overlap_size:]) if overlap_size > 0 else ""
                 current_chunk = overlap_text + " " + sentence if overlap_text else sentence
@@ -131,7 +78,7 @@ class AcademicChunker:
                 current_chunk += " " + sentence if current_chunk else sentence
                 current_sentences.append(sentence)
         
-        # Add final chunk
+        # Adding final chunk
         if current_chunk:
             chunks.append({
                 "text": current_chunk.strip(),
@@ -146,15 +93,6 @@ class AcademicChunker:
         return chunks
     
     def chunk_document(self, pages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-        Chunk entire document.
-        
-        Args:
-            pages: List of page dictionaries from PDF parser
-            
-        Returns:
-            List of document chunks
-        """
         all_chunks = []
         
         for page_data in pages:
@@ -163,7 +101,6 @@ class AcademicChunker:
             images = page_data["images"]
             has_math = page_data.get("has_math", False)
             
-            # Chunk page text
             text_chunks = self.chunk_text(
                 text,
                 {
@@ -175,9 +112,8 @@ class AcademicChunker:
             )
             all_chunks.extend(text_chunks)
             
-            # Add image/diagram descriptions as separate chunks
             for img in images:
-                # Extract surrounding text context for image
+                # Extracts surrounding text context for image
                 context_text = f"This page discusses trigonometry applications including heights, distances, angles of elevation and depression."
                 
                 img_chunk = {
