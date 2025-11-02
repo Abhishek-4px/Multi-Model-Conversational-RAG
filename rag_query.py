@@ -1,8 +1,3 @@
-"""
-RAG Query System.
-Handles retrieval, summarization, and answer generation using Groq API.
-"""
-
 import os
 import sys
 import argparse
@@ -11,46 +6,33 @@ from qdrant_client import QdrantClient
 import ollama
 import time
 from typing import List, Dict, Any, Optional
-
 from utils.cache_manager import PromptCache, ConversationalMemory
 
-# Load environment variables
 load_dotenv()
 
-# Configuration
+# Configs
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
 COLLECTION_NAME = os.getenv("QDRANT_COLLECTION_NAME", "trigonometry_chapter")
 EMBEDDING_MODEL = os.getenv("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-# Initialize cache and memory
+# Init cache and memory
 prompt_cache = PromptCache()
 conversation_memory = ConversationalMemory()
 
-
+# Uses ollama to generate the embeddings
 def generate_embeddings(text: str, model: str = EMBEDDING_MODEL) -> list:
-    """Generate embeddings using Ollama."""
     response = ollama.embeddings(model=model, prompt=text)
     return response["embedding"]
 
 
+# Takes user query , qdrant client  and results to retrieve for a quick dmeo I have done it to 5 , Gives you a list of relevent docs 
 def retrieve_context(query: str, client: QdrantClient, top_k: int = 5) -> list:
-    """
-    Retrieve relevant context from Qdrant.
-    
-    Args:
-        query: User query
-        client: Qdrant client
-        top_k: Number of results to retrieve
-        
-    Returns:
-        List of relevant documents
-    """
-    # Generate query embedding
+    # Generating query embeddings
     query_embedding = generate_embeddings(query)
     
-    # Search in Qdrant
+    # Searching in qdrant
     results = client.search(
         collection_name=COLLECTION_NAME,
         query_vector=query_embedding,
@@ -59,31 +41,21 @@ def retrieve_context(query: str, client: QdrantClient, top_k: int = 5) -> list:
     
     return results
 
-
+# Summarization is not done using ollama but used groq we pass the list we got from retrieve_context , groq summarizes
 def summarize_context(contexts: list) -> str:
-    """
-    Summarize retrieved contexts using Groq.
-    
-    Args:
-        contexts: List of context documents
-        
-    Returns:
-        Summary of contexts
-    """
     from groq import Groq
-    
     if not GROQ_API_KEY:
-        raise ValueError("❌ GROQ_API_KEY not in .env file!")
+        raise ValueError("GROQ_API_KEY not in .env file!")
     
     client = Groq(api_key=GROQ_API_KEY)
     
-    # Combine contexts
+    # Combining contexts
     combined_text = "\n\n".join([
         f"Source {i+1} (Page {ctx.payload['page']+1}): {ctx.payload['text'][:300]}..." 
         for i, ctx in enumerate(contexts)
     ])
     
-    # Create summarization prompt
+    # Summarization prompt created from prompt genie
     prompt = f"""You are analyzing content from a mathematics textbook chapter on trigonometry applications.
 
 Retrieved Context:
@@ -91,42 +63,29 @@ Retrieved Context:
 
 Provide a concise summary (2-3 sentences) highlighting the key mathematical concepts, formulas, or examples mentioned in the retrieved content:"""
     
-    # Generate summary using Groq
+    # GROQ generating summaries 
     message = client.chat.completions.create(
         messages=[{"role": "user", "content": prompt}],
         model="llama-3.3-70b-versatile",
         max_tokens=300,
         temperature=0.7,
     )
-    
     return message.choices[0].message.content
 
 
+# This is the final answer generated , we take question , list of 5 top k relevent strings , returns the para
 def generate_answer(question: str, contexts: List[str], use_memory: bool = False) -> str:
-    """
-    Generate answer using Groq API (FREE & FAST).
-    
-    Args:
-        question: User question
-        contexts: List of context strings
-        use_memory: Whether to use conversational memory
-        
-    Returns:
-        Generated answer
-    """
     from groq import Groq
     
     # Validate API key
     if not GROQ_API_KEY:
-        raise ValueError("❌ GROQ_API_KEY not in .env file!")
-    
-    # Initialize Groq client
+        raise ValueError("GROQ_API_KEY not in .env file!")
+
     client = Groq(api_key=GROQ_API_KEY)
-    
-    # Build context string
+ 
     context_str = "\n\n".join([f"[Source {i+1}]\n{ctx}" for i, ctx in enumerate(contexts)])
     
-    # Create prompt
+    # Prompt is taken from www.promptgenie.com
     prompt = f"""You are an expert academic tutor specializing in mathematics, especially trigonometry and geometry. 
 Answer the question based ONLY on the provided context. Be clear, concise, and educational.
 
@@ -137,7 +96,7 @@ Question: {question}
 
 Answer:"""
     
-    # Generate answer using Groq
+    # Using groq not ollama
     print("Generating answer using Groq (llama-3.1-70b)...")
     message = client.chat.completions.create(
         messages=[{"role": "user", "content": prompt}],
@@ -148,16 +107,15 @@ Answer:"""
     
     return message.choices[0].message.content
 
-
+# formatting of source citations as req in assignment
 def format_sources(contexts: list) -> str:
-    """Format source citations."""
+
     sources = []
     for i, ctx in enumerate(contexts):
         page = ctx.payload['page'] + 1
         source_type = ctx.payload.get('source', 'text')
         text = ctx.payload['text']
         
-        # Preview text (first 150 chars)
         preview = text[:150].replace('\n', ' ') + "..." if len(text) > 150 else text.replace('\n', ' ')
         
         if source_type == 'image':
@@ -170,25 +128,15 @@ def format_sources(contexts: list) -> str:
     
     return "\n".join(sources)
 
-
+# The main part is from this block, You pass a query , with 3 more args
 def run_query(question: str, summarize: bool = False, use_cache: bool = True, 
               conversational: bool = False):
-    """
-    Run RAG query.
-    
-    Args:
-        question: User question
-        summarize: Whether to show summarization
-        use_cache: Whether to use caching
-        conversational: Whether to use conversational memory
-    """
     print("\n" + "=" * 70)
     print(f"QUERY: {question}")
     print("=" * 70)
     
     start_time = time.time()
     
-    # Check cache
     cached_response = None
     if use_cache:
         cache_key = f"{question}_{summarize}_{conversational}"
@@ -207,32 +155,32 @@ def run_query(question: str, summarize: bool = False, use_cache: bool = True,
         print(cached_response["response"]["sources"])
         return
     
-    # Initialize Qdrant client
+    # Init the Qdrant client 
     try:
         client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
     except Exception as e:
-        print(f"\n❌ Error connecting to Qdrant: {e}")
-        print("Make sure Qdrant is running: docker-compose up -d")
+        print(f"\n Error connecting to Qdrant: {e}")
+        print("Make sure Qdrant is running: docker-compose up -d")   # better for debugging , wasted 20 mins here :(
         return
     
-    # Step 1: Retrieve context
+    # First is retrieve the context
     print(f"\n[1/3] Retrieving relevant context from Qdrant...")
     contexts = retrieve_context(question, client, top_k=5)
     
     if not contexts:
-        print("❌ No relevant context found. Make sure setup_pipeline.py has been run.")
+        print("No relevant context found. Make sure setup_pipeline.py has been run.")
         return
     
-    print(f"✓ Retrieved {len(contexts)} relevant chunks")
+    print(f"Retrieved {len(contexts)} relevant chunks")
     
-    # Show what was retrieved
+    # Printing some retrieved stuff
     text_sources = sum(1 for c in contexts if c.payload.get('source') == 'text')
     image_sources = sum(1 for c in contexts if c.payload.get('source') == 'image')
     if image_sources > 0:
         print(f"  - Text chunks: {text_sources}")
         print(f"  - Diagram chunks: {image_sources}")
     
-    # Step 2: Summarize (if requested)
+    # Summarization using groq (ollama can't be pulled due to less space)
     if summarize:
         print(f"\n[2/3] Generating summary of retrieved context using Groq...")
         try:
@@ -243,35 +191,34 @@ def run_query(question: str, summarize: bool = False, use_cache: bool = True,
             print(summary)
             print("-" * 70)
         except Exception as e:
-            print(f"⚠️ Summarization failed: {e}")
+            print(f"Summarization failed: {e}")
     else:
         print(f"\n[2/3] Skipping summarization...")
     
-    # Step 3: Generate answer
+    # Generating ans now
     print(f"\n[3/3] Generating answer using Groq...")
     
-    # Add to conversational memory if enabled
+    # Adding conversational memory 
     if conversational:
         conversation_memory.add_user_message(question)
     
-    # Extract text from contexts
+    # Extracting text from contexts
     context_texts = [ctx.payload['text'] for ctx in contexts]
     
     try:
         answer = generate_answer(question, context_texts, use_memory=conversational)
     except Exception as e:
-        print(f"\n❌ Error generating answer: {e}")
+        print(f"\n Error generating answer: {e}")
         return
     
     if conversational:
         conversation_memory.add_ai_message(answer)
     
-    # Format output
     sources = format_sources(contexts)
     
     elapsed_time = time.time() - start_time
     
-    # Cache response
+    # To Cache responses
     if use_cache:
         response_data = {
             "answer": answer,
@@ -279,8 +226,7 @@ def run_query(question: str, summarize: bool = False, use_cache: bool = True,
             "time": elapsed_time
         }
         prompt_cache.set(f"{question}_{summarize}_{conversational}", "groq", response_data)
-    
-    # Display results
+
     print("\n" + "=" * 70)
     print(f"✓ QUERY COMPLETE (Time: {elapsed_time:.2f}s)")
     print("=" * 70)
@@ -296,9 +242,8 @@ def run_query(question: str, summarize: bool = False, use_cache: bool = True,
     print(sources)
     print()
 
-
+# this is the main entry point
 def main():
-    """Main entry point."""
     parser = argparse.ArgumentParser(
         description="RAG Query System for Trigonometry Chapter using Groq API",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -327,16 +272,16 @@ Examples:
     
     if args.clear_cache:
         prompt_cache.clear()
-        print("✓ Cache cleared")
+        print("Cache cleared")
     
     if args.clear_memory:
         conversation_memory.clear()
-        print("✓ Conversation memory cleared")
+        print("Conversation memory cleared")
     
     run_query(
         question=args.question,
         summarize=args.summarize,
-        use_cache=not args.no_cache,
+        use_cache=not args.no_cache,   # double negative for caching
         conversational=args.conversational
     )
 

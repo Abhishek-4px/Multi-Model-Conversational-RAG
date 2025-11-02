@@ -1,50 +1,28 @@
-"""
-PDF Parser with multimodal extraction capabilities.
-Extracts text, images, and mathematical formulas from academic PDFs.
-"""
-
 import pymupdf
 import os
 from typing import List, Dict, Any
 import re
 
-
 class MultimodalPDFParser:
-    """Parses PDF documents extracting text, images, and formulas."""
     
+    #PDF Parser fn
     def __init__(self, pdf_path: str):
-        """
-        Initialize PDF parser.
-        
-        Args:
-            pdf_path: Path to PDF file
-        """
         self.pdf_path = pdf_path
         self.doc = None
         self.images_dir = "extracted_images"
         os.makedirs(self.images_dir, exist_ok=True)
     
     def open(self):
-        """Open PDF document."""
         self.doc = pymupdf.open(self.pdf_path)
-        print(f"✓ Opened PDF: {self.pdf_path}")
-        print(f"✓ Total pages: {len(self.doc)}")
+        print(f"Opened PDF: {self.pdf_path}")
+        print(f"Total pages: {len(self.doc)}")
     
     def close(self):
-        """Close PDF document."""
         if self.doc:
             self.doc.close()
-    
-    def detect_mathematical_content(self, text: str) -> bool:
-        """
-        Detect if text contains mathematical formulas or symbols.
-        
-        Args:
-            text: Text to analyze
             
-        Returns:
-            True if mathematical content detected
-        """
+    #Taked string text as input and returns a bool value depending whether maths formulas are found or not
+    def detect_mathematical_content(self, text: str) -> bool:
         math_patterns = [
             r'√',  # Square root
             r'∠',  # Angle
