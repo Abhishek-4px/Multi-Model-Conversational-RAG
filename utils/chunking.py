@@ -89,7 +89,6 @@ class AcademicChunker:
                     "has_formulas": self.is_formula_header(current_chunk)
                 }
             })
-        
         return chunks
     
     def chunk_document(self, pages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -113,7 +112,7 @@ class AcademicChunker:
             all_chunks.extend(text_chunks)
             
             for img in images:
-                # Extracts surrounding text context for image
+                # Extracts surrounding text context aswell for image
                 context_text = f"This page discusses trigonometry applications including heights, distances, angles of elevation and depression."
                 
                 img_chunk = {
