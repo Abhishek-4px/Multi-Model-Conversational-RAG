@@ -12,7 +12,7 @@ try:
     print("\ngemma3:4b downloaded successfully!")
     print("\nAvailable models:")
     models = ollama.list()
-    for model in models['models']:
+    for model in models['models']: 
         print(f"{model['name']}")
     
 except Exception as e:
